@@ -1,0 +1,8 @@
+[trap]
+address = ""
+response_contract = ""
+response_function = "executeResponse(bytes)"
+cooldown_period_blocks = 33
+block_sample_size = 1
+private_trap = true
+whitelist = ["0xc93bf33438c9c636fc49cafe1086c2c424507a15"]
