@@ -20,6 +20,7 @@ contract BeanstalkVault {
 
     // ── State ──────────────────────────────────────────────────────────────
     BeanstalkMock public immutable TARGET;
+    address public immutable DROSERA_CALLER;
     uint256 public lastResponseBlock;
     uint256 public responseCount;
 
@@ -30,9 +31,17 @@ contract BeanstalkVault {
         bytes incidentReport
     );
 
+    modifier onlyDrosera() {
+        require(msg.sender == DROSERA_CALLER, "BeanstalkVault: not authorized");
+        _;
+    }
+
     // ── Constructor ─────────────────────────────────────────────────────────
-    constructor(address _target) {
+    constructor(address _target, address _droseraCaller) {
+        require(_target != address(0), "BeanstalkVault: invalid target");
+        require(_droseraCaller != address(0), "BeanstalkVault: invalid caller");
         TARGET = BeanstalkMock(_target);
+        DROSERA_CALLER = _droseraCaller;
     }
 
     // ── Response function (called by Drosera network) ──────────────────────
@@ -41,7 +50,7 @@ contract BeanstalkVault {
      * @notice Drosera calls this when BeanstalkTrap.shouldRespond() returns true.
      * @param reason  ABI-encoded incident report from the Trap.
      */
-    function executeResponse(bytes calldata reason) external {
+    function executeResponse(bytes calldata reason) external onlyDrosera {
         // Cooldown deduplication — allow first-ever call (lastResponseBlock == 0)
         require(
             lastResponseBlock == 0 ||

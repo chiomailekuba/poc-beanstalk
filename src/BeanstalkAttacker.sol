@@ -11,11 +11,9 @@ import "./BeanstalkMock.sol";
  * hold a 67.08 % governance supermajority, called emergencyCommit() to pass
  * BIP-18, and drained ~$182 M from the protocol treasury — all in one block.
  *
- * This contract replicates that sequence so Foundry tests can demonstrate:
- *   - WITHOUT Drosera: the attack succeeds (treasury → 0).
- *   - WITH Drosera:    the Trap fires between acquireFlashVotes() and
- *                      emergencyCommit(), the Vault pauses the protocol, and
- *                      the treasury remains intact.
+ * This demo contract provides both an atomic path (which should fail once
+ * delay controls are enabled) and a delayed path that mirrors execution after
+ * a governance reaction window.
  */
 contract BeanstalkAttacker {
     BeanstalkMock public immutable TARGET;
@@ -29,15 +27,21 @@ contract BeanstalkAttacker {
         TARGET.acquireFlashVotes();
     }
 
+    /// @notice Step 2 – queue delayed emergency execution.
+    function queueEmergencyCommit() external {
+        TARGET.queueEmergencyCommit();
+    }
+
     /// @notice Step 2 – drain treasury via emergencyCommit().
     function drainTreasury() external {
         TARGET.emergencyCommit();
     }
 
-    /// @notice Runs both steps atomically (used in the baseline test that
-    ///         proves the attack works WITHOUT Drosera protection).
+    /// @notice Attempts an atomic path. This should revert when delay controls
+    ///         are active because queue + execute occur in the same block.
     function atomicAttack() external {
         TARGET.acquireFlashVotes();
+        TARGET.queueEmergencyCommit();
         TARGET.emergencyCommit();
     }
 }

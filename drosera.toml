@@ -1,8 +1,14 @@
-[trap]
-address = ""
-response_contract = ""
+ethereum_rpc = "https://ethereum-hoodi-rpc.publicnode.com"
+drosera_rpc = "https://relay.hoodi.drosera.io"
+
+[traps.beanstalk_governance_trap]
+path = "out/BeanstalkTrap.sol/BeanstalkTrap.json"
+address = "0x1f1cA37C905296df1cafFB63e2475df87be4909E"
+response_contract = "0x56c41dEE8266840C6A57747F02570B2B8669c661"
 response_function = "executeResponse(bytes)"
 cooldown_period_blocks = 33
-block_sample_size = 1
+block_sample_size = 2
+min_number_of_operators = 1
+max_number_of_operators = 2
 private_trap = true
 whitelist = ["0xc93bf33438c9c636fc49cafe1086c2c424507a15"]

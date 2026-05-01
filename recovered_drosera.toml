@@ -1,0 +1,28 @@
+ethereum_rpc = "https://ethereum-hoodi-rpc.publicnode.com"
+drosera_rpc = "https://relay.hoodi.drosera.io"
+
+[traps]
+
+[traps.trap_0x1a389eaa28058eb5FA906F97F495E69e527507b1]
+path = "You need to set the path manually to the trap's artifact file, ex: out/HelloWorldTrap.sol/HelloWorldTrap.json"
+response_contract = "8053f1b795668e4fd5cbe95e0841839bf2900414"
+response_function = "alert(bytes32,address,uint8,uint256)"
+cooldown_period_blocks = 33
+min_number_of_operators = 1
+max_number_of_operators = 2
+block_sample_size = 1
+private_trap = true
+whitelist = ["c93bf33438c9c636fc49cafe1086c2c424507a15"]
+address = "1a389eaa28058eb5fa906f97f495e69e527507b1"
+
+[traps.trap_0x1f1cA37C905296df1cafFB63e2475df87be4909E]
+path = "You need to set the path manually to the trap's artifact file, ex: out/HelloWorldTrap.sol/HelloWorldTrap.json"
+response_contract = "183d78491555cb69b68d2354f7373cc2632508c7"
+response_function = "helloworld(string)"
+cooldown_period_blocks = 33
+min_number_of_operators = 1
+max_number_of_operators = 2
+block_sample_size = 10
+private_trap = true
+whitelist = ["c93bf33438c9c636fc49cafe1086c2c424507a15"]
+address = "1f1ca37c905296df1caffb63e2475df87be4909e"
