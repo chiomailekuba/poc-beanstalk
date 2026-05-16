@@ -1,14 +1,16 @@
 ethereum_rpc = "https://ethereum-hoodi-rpc.publicnode.com"
 drosera_rpc = "https://relay.hoodi.drosera.io"
+eth_chain_id = 560048
+drosera_address = "0x91cB447BaFc6e0EA0F4Fe056F5a9b1F14bb06e5D"
 
 [traps.beanstalk_governance_trap]
-path = "out/BeanstalkTrap.sol/BeanstalkTrap.json"
+path = "out/BeanstalkTrapV2.sol/BeanstalkTrapV2.json"
 address = "0x1f1cA37C905296df1cafFB63e2475df87be4909E"
 response_contract = "0x56c41dEE8266840C6A57747F02570B2B8669c661"
 response_function = "executeResponse(bytes)"
 cooldown_period_blocks = 33
 block_sample_size = 2
-min_number_of_operators = 1
-max_number_of_operators = 2
-private_trap = true
-whitelist = ["0xc93bf33438c9c636fc49cafe1086c2c424507a15"]
+min_number_of_operators = 3
+max_number_of_operators = 7
+private_trap = false
+whitelist = []

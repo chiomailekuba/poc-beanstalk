@@ -82,6 +82,14 @@ contract BeanstalkMock {
         _updateTopHolder(msg.sender);
     }
 
+    /// @notice Simulates benign/gradual governance accumulation.
+    function acquireVotesSlowly(address holder, uint256 amount) external {
+        require(!paused, "BeanstalkMock: protocol is paused");
+        stalk[holder] += amount;
+        totalStalk += amount;
+        _updateTopHolder(holder);
+    }
+
     /// @notice Queues emergency execution and enforces a reaction window.
     function queueEmergencyCommit() external {
         require(!paused, "BeanstalkMock: protocol is paused");
