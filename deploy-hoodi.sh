@@ -72,21 +72,21 @@ if [ -z "$ATTACKER_ADDRESS" ]; then echo "ERROR: Could not parse BeanstalkAttack
 echo "BeanstalkAttacker: $ATTACKER_ADDRESS"
 echo ""
 
-# Step 3: Deploy BeanstalkVaultV2
-echo ">>> Step 3: Deploying BeanstalkVaultV2..."
-VAULT_OUTPUT=$(forge create src/BeanstalkVaultV2.sol:BeanstalkVaultV2 \
+# Step 3: Deploy BeanstalkVaultV3
+echo ">>> Step 3: Deploying BeanstalkVaultV3..."
+VAULT_OUTPUT=$(forge create src/BeanstalkVaultV3.sol:BeanstalkVaultV3 \
     --rpc-url "$HOODI_RPC" \
     --private-key "$PRIVATE_KEY" \
     --broadcast \
     --constructor-args "$MOCK_ADDRESS" "$DROSERA_CALLER" "$COOLDOWN_BLOCKS" 2>&1) || { echo "FAILED!"; echo "$VAULT_OUTPUT"; exit 1; }
 echo "$VAULT_OUTPUT"
 VAULT_ADDRESS=$(echo "$VAULT_OUTPUT" | grep -oP "Deployed to: \K0x[a-fA-F0-9]{40}")
-if [ -z "$VAULT_ADDRESS" ]; then echo "ERROR: Could not parse BeanstalkVaultV2 address"; exit 1; fi
-echo "BeanstalkVaultV2: $VAULT_ADDRESS"
+if [ -z "$VAULT_ADDRESS" ]; then echo "ERROR: Could not parse BeanstalkVaultV3 address"; exit 1; fi
+echo "BeanstalkVaultV3: $VAULT_ADDRESS"
 echo ""
 
 # Step 3b: Wire pause guardian to vault
-echo ">>> Step 3b: Setting pause guardian to BeanstalkVaultV2..."
+echo ">>> Step 3b: Setting pause guardian to BeanstalkVaultV3..."
 SET_GUARDIAN_OUTPUT=$(cast send "$MOCK_ADDRESS" \
     "setPauseGuardian(address)" "$VAULT_ADDRESS" \
     --rpc-url "$HOODI_RPC" \
@@ -95,16 +95,16 @@ echo "$SET_GUARDIAN_OUTPUT"
 echo "Pause guardian set to vault."
 echo ""
 
-# Step 4: Deploy BeanstalkTrapV2
-echo ">>> Step 4: Deploying BeanstalkTrapV2..."
-TRAP_OUTPUT=$(forge create src/BeanstalkTrapV2.sol:BeanstalkTrapV2 \
+# Step 4: Deploy BeanstalkTrapV3
+echo ">>> Step 4: Deploying BeanstalkTrapV3..."
+TRAP_OUTPUT=$(forge create src/BeanstalkTrapV3.sol:BeanstalkTrapV3 \
     --rpc-url "$HOODI_RPC" \
     --private-key "$PRIVATE_KEY" \
     --broadcast 2>&1) || { echo "FAILED!"; echo "$TRAP_OUTPUT"; exit 1; }
 echo "$TRAP_OUTPUT"
 TRAP_ADDRESS=$(echo "$TRAP_OUTPUT" | grep -oP "Deployed to: \K0x[a-fA-F0-9]{40}")
-if [ -z "$TRAP_ADDRESS" ]; then echo "ERROR: Could not parse BeanstalkTrapV2 address"; exit 1; fi
-echo "BeanstalkTrapV2: $TRAP_ADDRESS"
+if [ -z "$TRAP_ADDRESS" ]; then echo "ERROR: Could not parse BeanstalkTrapV3 address"; exit 1; fi
+echo "BeanstalkTrapV3: $TRAP_ADDRESS"
 echo ""
 
 # Step 5: Write drosera.toml
@@ -116,7 +116,7 @@ eth_chain_id = 560048
 drosera_address = "0x91cB447BaFc6e0EA0F4Fe056F5a9b1F14bb06e5D"
 
 [traps.beanstalk_governance_trap]
-path = "out/BeanstalkTrapV2.sol/BeanstalkTrapV2.json"
+path = "out/BeanstalkTrapV3.sol/BeanstalkTrapV3.json"
 address = "${TRAP_ADDRESS}"
 response_contract = "${VAULT_ADDRESS}"
 response_function = "executeResponse(bytes)"
@@ -136,8 +136,8 @@ echo "  ALL CONTRACTS DEPLOYED ON HOODI"
 echo "================================================="
 echo "  BeanstalkMock:     $MOCK_ADDRESS"
 echo "  BeanstalkAttacker: $ATTACKER_ADDRESS"
-echo "  BeanstalkVaultV2:  $VAULT_ADDRESS"
-echo "  BeanstalkTrapV2:   $TRAP_ADDRESS"
+echo "  BeanstalkVaultV3:  $VAULT_ADDRESS"
+echo "  BeanstalkTrapV3:   $TRAP_ADDRESS"
 echo "================================================="
 echo ""
 echo "NEXT: register the Trap with Drosera:"
