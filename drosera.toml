@@ -4,9 +4,9 @@ eth_chain_id = 560048
 drosera_address = "0x91cB447BaFc6e0EA0F4Fe056F5a9b1F14bb06e5D"
 
 [traps.beanstalk_governance_trap]
-path = "out/BeanstalkTrapV3.sol/BeanstalkTrapV3.json"
+path = "out/BeanstalkTrapV4.sol/BeanstalkTrapV4.json"
 address = "0x1f1cA37C905296df1cafFB63e2475df87be4909E"
-response_contract = "0xREPLACE_WITH_DEPLOYED_BEANSTALK_VAULT_V3"
+response_contract = "0xREPLACE_WITH_DEPLOYED_BEANSTALK_VAULT_V4"
 response_function = "executeResponse(bytes)"
 cooldown_period_blocks = 33
 block_sample_size = 2

@@ -116,3 +116,39 @@ The deploy script writes `drosera.toml` with:
 - Restricts protocol pause to configured pause guardian.
 - Removes known-attacker coupling by monitoring current top-holder state.
 - Removes trap constructor arguments by using one-time `configure(address)`.
+
+---
+
+## V4 Proposal-Level Invariant
+
+V4 upgrades detection from top-holder concentration to proposal-level risk.
+
+The V4 Trap fires when all are true:
+
+1. `current.proposalForVotes >= current.proposalThresholdVotes`
+2. `previous.proposalForVotes < previous.proposalThresholdVotes`
+3. `current.queued == true`
+4. `current.readyBlock > current.blockNumber`
+5. `current.paused == false`
+6. `current.executed == false`
+7. `current.canceled == false`
+
+### V4 Reason Precedence
+
+When the base invariant is true, reason selection is deterministic:
+
+1. `REASON_SINGLE_WHALE_SUPPORT` if `topSupporterVotes >= proposalThresholdVotes`
+2. `REASON_COORDINATED_MULTI_SUPPORTER` if `supportVoterCount > 1`
+3. Otherwise `REASON_THRESHOLD_CROSS_DELAY_WINDOW`
+
+This precedence ensures one canonical reason per incident even when multiple
+heuristics are true in the same block.
+
+### V4 Operational Alerts
+
+`BeanstalkTrapV4.shouldAlert()` is available for operational health signaling
+and does not trigger pause directly. It emits typed alert payloads for:
+
+- invalid sample windows
+- target missing
+- read failures
