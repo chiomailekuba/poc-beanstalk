@@ -25,6 +25,19 @@ contract TrapHarnessV4NoCodeTarget is BeanstalkTrapV4 {
     }
 }
 
+contract NoCancelTargetV4 {
+    bool public paused;
+    bool public canceled;
+
+    function pause() external { paused = true; }
+    function cancelProposal() external { /* intentional no-op */ }
+
+    function getTrapSnapshot()
+        external pure
+        returns (uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256)
+    { return (1000,1000,1,1000,1,2,1,0,0,0); }
+}
+
 contract BeanstalkMitigationV4Test is Test {
     BeanstalkGovernanceMockV4 internal protocol;
     TrapHarnessV4 internal trap;
@@ -85,6 +98,7 @@ contract BeanstalkMitigationV4Test is Test {
 
         vault.executeResponse(response);
         assertTrue(protocol.paused(), "Protocol should be paused by response");
+        assertTrue(protocol.canceled(), "Proposal should be canceled by response");
 
         vm.roll(block.number + 1);
         vm.expectRevert(bytes("BeanstalkGovernanceMockV4: protocol is paused"));
@@ -259,5 +273,31 @@ contract BeanstalkMitigationV4Test is Test {
         assertEq(alert.reason, BeanstalkTypesV4.REASON_TARGET_MISSING);
         assertEq(alert.status, BeanstalkTypesV4.STATUS_TARGET_MISSING);
         assertEq(alert.severity, BeanstalkTypesV4.SEVERITY_CRITICAL);
+    }
+
+    function test_Response_CancelFailedReverts() public {
+        NoCancelTargetV4 noCancel = new NoCancelTargetV4();
+        BeanstalkVaultV4 badVault = new BeanstalkVaultV4(
+            address(noCancel),
+            address(this),
+            33
+        );
+
+        BeanstalkTypesV4.Incident memory incident = BeanstalkTypesV4.Incident({
+            invariantId: BeanstalkTypesV4.INVARIANT_ID,
+            target: address(noCancel),
+            currentForVotes: 1000,
+            previousForVotes: 0,
+            thresholdVotes: 1000,
+            supportVoterCount: 1,
+            topSupporterVotes: 1000,
+            currentBlock: block.number,
+            previousBlock: block.number - 1,
+            readyBlock: block.number + 1,
+            reason: BeanstalkTypesV4.REASON_SINGLE_WHALE_SUPPORT
+        });
+
+        vm.expectRevert(BeanstalkVaultV4.CancelFailed.selector);
+        badVault.executeResponse(abi.encode(incident));
     }
 }

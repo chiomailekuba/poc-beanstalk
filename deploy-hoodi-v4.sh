@@ -50,6 +50,13 @@ library TrapDeployConfig {
 }
 EOF
 echo "TrapDeployConfig.sol generated."
+
+echo ">>> Step 1b-check: Verifying TARGET is not placeholder..."
+if grep -q "0x000000000000000000000000000000000000bEEF" src/TrapDeployConfig.sol; then
+    echo "ERROR: TrapDeployConfig.sol still contains placeholder address. Aborting."
+    exit 1
+fi
+echo "Config verified: TARGET = $TARGET_ADDRESS"
 echo ""
 
 echo ">>> Step 1c: Building contracts..."

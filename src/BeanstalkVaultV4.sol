@@ -3,9 +3,11 @@ pragma solidity ^0.8.20;
 
 import "./BeanstalkTypesV4.sol";
 
-interface IBeanstalkPausable {
+interface IBeanstalkGovernance {
     function pause() external;
     function paused() external view returns (bool);
+    function cancelProposal() external;
+    function canceled() external view returns (bool);
 }
 
 contract BeanstalkVaultV4 {
@@ -36,6 +38,7 @@ contract BeanstalkVaultV4 {
     error InvalidThresholdCross();
     error CooldownActive();
     error PauseFailed();
+    error CancelFailed();
 
     constructor(
         address target_,
@@ -100,10 +103,16 @@ contract BeanstalkVaultV4 {
         lastResponseBlock = block.number;
         responseCount += 1;
 
-        IBeanstalkPausable(TARGET).pause();
+        IBeanstalkGovernance(TARGET).pause();
 
-        if (!IBeanstalkPausable(TARGET).paused()) {
+        if (!IBeanstalkGovernance(TARGET).paused()) {
             revert PauseFailed();
+        }
+
+        IBeanstalkGovernance(TARGET).cancelProposal();
+
+        if (!IBeanstalkGovernance(TARGET).canceled()) {
+            revert CancelFailed();
         }
 
         emit GovernanceTakeoverContained(

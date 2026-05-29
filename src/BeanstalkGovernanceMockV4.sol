@@ -42,6 +42,14 @@ contract BeanstalkGovernanceMockV4 {
         _;
     }
 
+    modifier onlyOwnerOrGuardian() {
+        require(
+            msg.sender == owner || msg.sender == pauseGuardian,
+            "BeanstalkGovernanceMockV4: not owner or guardian"
+        );
+        _;
+    }
+
     function setPauseGuardian(address guardian) external onlyOwner {
         require(
             guardian != address(0),
@@ -130,7 +138,7 @@ contract BeanstalkGovernanceMockV4 {
         treasury = 0;
     }
 
-    function cancelProposal() external onlyOwner {
+    function cancelProposal() external onlyOwnerOrGuardian {
         require(!executed, "BeanstalkGovernanceMockV4: already executed");
         canceled = true;
     }
