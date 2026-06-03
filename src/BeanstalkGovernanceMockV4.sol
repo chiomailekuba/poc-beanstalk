@@ -6,22 +6,32 @@ contract BeanstalkGovernanceMockV4 {
     address public pauseGuardian;
 
     uint256 public treasury;
-    uint256 public proposalForVotes;
-    uint256 public proposalThresholdVotes;
-    uint256 public supportVoterCount;
-    uint256 public topSupporterVotes;
-    bool public queued;
-    uint256 public readyBlock;
     bool public paused;
-    bool public executed;
-    bool public canceled;
-    uint256 public proposalNonce;
 
-    mapping(address => uint256) public supporterVotes;
-    mapping(address => uint256) public supporterNonce;
+    uint256 public activeProposalId;
+    uint256 public nextProposalId = 1;
 
     uint256 public constant INITIAL_TREASURY = 182_000_000 ether;
     uint256 public constant QUEUE_DELAY_BLOCKS = 1;
+
+    struct Proposal {
+        uint256 id;
+        address proposer;
+        address target;
+        bytes32 calldataHash;
+        uint256 forVotes;
+        uint256 thresholdVotes;
+        uint256 supportVoterCount;
+        uint256 topSupporterVotes;
+        bool queued;
+        uint256 readyBlock;
+        bool executed;
+        bool canceled;
+    }
+
+    mapping(uint256 => Proposal) public proposals;
+    mapping(uint256 => mapping(address => uint256))
+        public proposalSupporterVotes;
 
     constructor() {
         owner = msg.sender;
@@ -59,92 +69,137 @@ contract BeanstalkGovernanceMockV4 {
     }
 
     function createEmergencyProposal(
+        address target,
+        bytes calldata actionData,
         uint256 thresholdVotes_
-    ) external onlyOwner {
+    ) external onlyOwner returns (uint256 proposalId) {
         require(
-            !(queued && !executed && !canceled),
-            "BeanstalkGovernanceMockV4: active proposal exists"
+            target != address(0),
+            "BeanstalkGovernanceMockV4: invalid target"
         );
         require(
             thresholdVotes_ > 0,
             "BeanstalkGovernanceMockV4: invalid threshold"
         );
 
-        proposalForVotes = 0;
-        proposalThresholdVotes = thresholdVotes_;
-        supportVoterCount = 0;
-        topSupporterVotes = 0;
-        queued = false;
-        readyBlock = 0;
-        executed = false;
-        canceled = false;
-        proposalNonce += 1;
+        proposalId = nextProposalId++;
+
+        proposals[proposalId] = Proposal({
+            id: proposalId,
+            proposer: msg.sender,
+            target: target,
+            calldataHash: keccak256(actionData),
+            forVotes: 0,
+            thresholdVotes: thresholdVotes_,
+            supportVoterCount: 0,
+            topSupporterVotes: 0,
+            queued: false,
+            readyBlock: 0,
+            executed: false,
+            canceled: false
+        });
+
+        activeProposalId = proposalId;
     }
 
     function supportProposal(uint256 votes) external {
         require(!paused, "BeanstalkGovernanceMockV4: protocol is paused");
+        Proposal storage p = proposals[activeProposalId];
+        require(p.id != 0, "BeanstalkGovernanceMockV4: no active proposal");
         require(
-            !executed && !canceled,
+            !p.executed && !p.canceled,
             "BeanstalkGovernanceMockV4: proposal closed"
         );
         require(votes > 0, "BeanstalkGovernanceMockV4: invalid votes");
 
-        // Use proposal nonce to avoid stale voter state across proposals.
-        if (supporterNonce[msg.sender] != proposalNonce) {
-            supporterNonce[msg.sender] = proposalNonce;
-            supporterVotes[msg.sender] = 0;
-            supportVoterCount += 1;
-        } else if (supporterVotes[msg.sender] == 0) {
-            supportVoterCount += 1;
+        if (proposalSupporterVotes[activeProposalId][msg.sender] == 0) {
+            p.supportVoterCount += 1;
         }
 
-        supporterVotes[msg.sender] += votes;
-        proposalForVotes += votes;
+        proposalSupporterVotes[activeProposalId][msg.sender] += votes;
+        p.forVotes += votes;
 
-        if (supporterVotes[msg.sender] > topSupporterVotes) {
-            topSupporterVotes = supporterVotes[msg.sender];
+        if (
+            proposalSupporterVotes[activeProposalId][msg.sender] >
+            p.topSupporterVotes
+        ) {
+            p.topSupporterVotes = proposalSupporterVotes[activeProposalId][
+                msg.sender
+            ];
         }
     }
 
     function queueProposal() external {
         require(!paused, "BeanstalkGovernanceMockV4: protocol is paused");
+        Proposal storage p = proposals[activeProposalId];
+        require(p.id != 0, "BeanstalkGovernanceMockV4: no active proposal");
         require(
-            !executed && !canceled,
+            !p.executed && !p.canceled,
             "BeanstalkGovernanceMockV4: proposal closed"
         );
-        require(!queued, "BeanstalkGovernanceMockV4: already queued");
+        require(!p.queued, "BeanstalkGovernanceMockV4: already queued");
         require(
-            proposalForVotes >= proposalThresholdVotes,
+            p.forVotes >= p.thresholdVotes,
             "BeanstalkGovernanceMockV4: threshold not met"
         );
 
-        queued = true;
-        readyBlock = block.number + QUEUE_DELAY_BLOCKS;
+        p.queued = true;
+        p.readyBlock = block.number + QUEUE_DELAY_BLOCKS;
     }
 
     function executeProposal() external {
         require(!paused, "BeanstalkGovernanceMockV4: protocol is paused");
-        require(queued, "BeanstalkGovernanceMockV4: not queued");
+        Proposal storage p = proposals[activeProposalId];
+        require(p.id != 0, "BeanstalkGovernanceMockV4: no active proposal");
+        require(p.queued, "BeanstalkGovernanceMockV4: not queued");
         require(
-            !executed && !canceled,
+            !p.executed && !p.canceled,
             "BeanstalkGovernanceMockV4: proposal closed"
         );
         require(
-            block.number >= readyBlock,
+            block.number >= p.readyBlock,
             "BeanstalkGovernanceMockV4: timelock active"
         );
 
-        executed = true;
+        p.executed = true;
         treasury = 0;
     }
 
-    function cancelProposal() external onlyOwnerOrGuardian {
-        require(!executed, "BeanstalkGovernanceMockV4: already executed");
-        canceled = true;
+    function cancelProposal(uint256 proposalId) external onlyOwnerOrGuardian {
+        Proposal storage p = proposals[proposalId];
+        require(p.id != 0, "BeanstalkGovernanceMockV4: proposal missing");
+        require(!p.executed, "BeanstalkGovernanceMockV4: already executed");
+        require(!p.canceled, "BeanstalkGovernanceMockV4: already canceled");
+        p.canceled = true;
+    }
+
+    function proposalCanceled(uint256 proposalId) external view returns (bool) {
+        return proposals[proposalId].canceled;
     }
 
     function pause() external onlyPauseGuardian {
         paused = true;
+    }
+
+    // Compatibility getters — proxy active proposal state.
+    function proposalForVotes() external view returns (uint256) {
+        return proposals[activeProposalId].forVotes;
+    }
+
+    function proposalThresholdVotes() external view returns (uint256) {
+        return proposals[activeProposalId].thresholdVotes;
+    }
+
+    function supportVoterCount() external view returns (uint256) {
+        return proposals[activeProposalId].supportVoterCount;
+    }
+
+    function topSupporterVotes() external view returns (uint256) {
+        return proposals[activeProposalId].topSupporterVotes;
+    }
+
+    function canceled() external view returns (bool) {
+        return proposals[activeProposalId].canceled;
     }
 
     function getTrapSnapshot()
@@ -160,18 +215,27 @@ contract BeanstalkGovernanceMockV4 {
             uint256 snapshotBlock,
             uint256 snapshotPaused,
             uint256 snapshotExecuted,
-            uint256 snapshotCanceled
+            uint256 snapshotCanceled,
+            uint256 snapshotProposalId,
+            address snapshotProposer,
+            address snapshotProposalTarget,
+            bytes32 snapshotProposalCalldataHash
         )
     {
-        snapshotProposalForVotes = proposalForVotes;
-        snapshotProposalThresholdVotes = proposalThresholdVotes;
-        snapshotSupportVoterCount = supportVoterCount;
-        snapshotTopSupporterVotes = topSupporterVotes;
-        snapshotQueued = queued ? 1 : 0;
-        snapshotReadyBlock = readyBlock;
+        Proposal storage p = proposals[activeProposalId];
+        snapshotProposalForVotes = p.forVotes;
+        snapshotProposalThresholdVotes = p.thresholdVotes;
+        snapshotSupportVoterCount = p.supportVoterCount;
+        snapshotTopSupporterVotes = p.topSupporterVotes;
+        snapshotQueued = p.queued ? 1 : 0;
+        snapshotReadyBlock = p.readyBlock;
         snapshotBlock = block.number;
         snapshotPaused = paused ? 1 : 0;
-        snapshotExecuted = executed ? 1 : 0;
-        snapshotCanceled = canceled ? 1 : 0;
+        snapshotExecuted = p.executed ? 1 : 0;
+        snapshotCanceled = p.canceled ? 1 : 0;
+        snapshotProposalId = p.id;
+        snapshotProposer = p.proposer;
+        snapshotProposalTarget = p.target;
+        snapshotProposalCalldataHash = p.calldataHash;
     }
 }

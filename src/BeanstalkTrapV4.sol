@@ -8,8 +8,8 @@ import "./BeanstalkTypesV4.sol";
 contract BeanstalkTrapV4 is ITrap {
     uint256 public constant SCHEMA_VERSION = 1;
     uint256 public constant REQUIRED_SAMPLES = 2;
-    uint256 public constant COLLECT_OUTPUT_SIZE = 14 * 32;
-    uint256 public constant SNAPSHOT_RETURN_SIZE = 10 * 32;
+    uint256 public constant COLLECT_OUTPUT_SIZE = 18 * 32;
+    uint256 public constant SNAPSHOT_RETURN_SIZE = 14 * 32;
 
     function _target() internal view virtual returns (address) {
         return TrapDeployConfig.TARGET;
@@ -49,6 +49,10 @@ contract BeanstalkTrapV4 is ITrap {
         out.paused = _memUintAt(raw, 7) == 0 ? 0 : 1;
         out.executed = _memUintAt(raw, 8) == 0 ? 0 : 1;
         out.canceled = _memUintAt(raw, 9) == 0 ? 0 : 1;
+        out.proposalId = _memUintAt(raw, 10);
+        out.proposer = address(uint160(_memUintAt(raw, 11)));
+        out.proposalTarget = address(uint160(_memUintAt(raw, 12)));
+        out.proposalCalldataHash = bytes32(_memUintAt(raw, 13));
 
         return abi.encode(out);
     }
@@ -97,6 +101,10 @@ contract BeanstalkTrapV4 is ITrap {
         BeanstalkTypesV4.Incident memory incident = BeanstalkTypesV4.Incident({
             invariantId: BeanstalkTypesV4.INVARIANT_ID,
             target: current.target,
+            proposalId: current.proposalId,
+            proposer: current.proposer,
+            proposalTarget: current.proposalTarget,
+            proposalCalldataHash: current.proposalCalldataHash,
             currentForVotes: current.proposalForVotes,
             previousForVotes: previous.proposalForVotes,
             thresholdVotes: current.proposalThresholdVotes,
@@ -201,6 +209,9 @@ contract BeanstalkTrapV4 is ITrap {
             return false;
         if (current.target != previous.target) return false;
 
+        if (current.proposalId == 0) return false;
+        if (current.proposalId != previous.proposalId) return false;
+
         if (current.blockNumber != previous.blockNumber + 1) return false;
 
         if (
@@ -222,16 +233,20 @@ contract BeanstalkTrapV4 is ITrap {
         out.status = _uintAt(raw, 1);
         out.invariantId = _wordAt(raw, 2);
         out.target = _addressAt(raw, 3);
-        out.proposalForVotes = _uintAt(raw, 4);
-        out.proposalThresholdVotes = _uintAt(raw, 5);
-        out.supportVoterCount = _uintAt(raw, 6);
-        out.topSupporterVotes = _uintAt(raw, 7);
-        out.queued = _uintAt(raw, 8) == 0 ? 0 : 1;
-        out.readyBlock = _uintAt(raw, 9);
-        out.blockNumber = _uintAt(raw, 10);
-        out.paused = _uintAt(raw, 11) == 0 ? 0 : 1;
-        out.executed = _uintAt(raw, 12) == 0 ? 0 : 1;
-        out.canceled = _uintAt(raw, 13) == 0 ? 0 : 1;
+        out.proposalId = _uintAt(raw, 4);
+        out.proposer = _addressAt(raw, 5);
+        out.proposalTarget = _addressAt(raw, 6);
+        out.proposalCalldataHash = _wordAt(raw, 7);
+        out.proposalForVotes = _uintAt(raw, 8);
+        out.proposalThresholdVotes = _uintAt(raw, 9);
+        out.supportVoterCount = _uintAt(raw, 10);
+        out.topSupporterVotes = _uintAt(raw, 11);
+        out.queued = _uintAt(raw, 12) == 0 ? 0 : 1;
+        out.readyBlock = _uintAt(raw, 13);
+        out.blockNumber = _uintAt(raw, 14);
+        out.paused = _uintAt(raw, 15) == 0 ? 0 : 1;
+        out.executed = _uintAt(raw, 16) == 0 ? 0 : 1;
+        out.canceled = _uintAt(raw, 17) == 0 ? 0 : 1;
 
         return (true, out);
     }

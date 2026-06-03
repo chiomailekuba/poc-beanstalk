@@ -26,6 +26,10 @@ library BeanstalkTypesV4 {
         uint256 status;
         bytes32 invariantId;
         address target;
+        uint256 proposalId;
+        address proposer;
+        address proposalTarget;
+        bytes32 proposalCalldataHash;
         uint256 proposalForVotes;
         uint256 proposalThresholdVotes;
         uint256 supportVoterCount;
@@ -41,6 +45,10 @@ library BeanstalkTypesV4 {
     struct Incident {
         bytes32 invariantId;
         address target;
+        uint256 proposalId;
+        address proposer;
+        address proposalTarget;
+        bytes32 proposalCalldataHash;
         uint256 currentForVotes;
         uint256 previousForVotes;
         uint256 thresholdVotes;

@@ -6,8 +6,8 @@ import "./BeanstalkTypesV4.sol";
 interface IBeanstalkGovernance {
     function pause() external;
     function paused() external view returns (bool);
-    function cancelProposal() external;
-    function canceled() external view returns (bool);
+    function cancelProposal(uint256 proposalId) external;
+    function proposalCanceled(uint256 proposalId) external view returns (bool);
 }
 
 contract BeanstalkVaultV4 {
@@ -15,7 +15,7 @@ contract BeanstalkVaultV4 {
     address public immutable DROSERA_CALLER;
     uint256 public immutable COOLDOWN_BLOCKS;
 
-    uint256 public constant INCIDENT_ENCODED_SIZE = 11 * 32;
+    uint256 public constant INCIDENT_ENCODED_SIZE = 15 * 32;
 
     uint256 public lastResponseBlock;
     uint256 public responseCount;
@@ -109,9 +109,11 @@ contract BeanstalkVaultV4 {
             revert PauseFailed();
         }
 
-        IBeanstalkGovernance(TARGET).cancelProposal();
+        IBeanstalkGovernance(TARGET).cancelProposal(incident.proposalId);
 
-        if (!IBeanstalkGovernance(TARGET).canceled()) {
+        if (
+            !IBeanstalkGovernance(TARGET).proposalCanceled(incident.proposalId)
+        ) {
             revert CancelFailed();
         }
 

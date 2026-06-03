@@ -27,15 +27,54 @@ contract TrapHarnessV4NoCodeTarget is BeanstalkTrapV4 {
 
 contract NoCancelTargetV4 {
     bool public paused;
-    bool public canceled;
 
-    function pause() external { paused = true; }
-    function cancelProposal() external { /* intentional no-op */ }
+    function pause() external {
+        paused = true;
+    }
+    function cancelProposal(uint256) external {
+        /* intentional no-op */
+    }
+    function proposalCanceled(uint256) external pure returns (bool) {
+        return false;
+    }
 
     function getTrapSnapshot()
-        external pure
-        returns (uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256)
-    { return (1000,1000,1,1000,1,2,1,0,0,0); }
+        external
+        pure
+        returns (
+            uint256,
+            uint256,
+            uint256,
+            uint256,
+            uint256,
+            uint256,
+            uint256,
+            uint256,
+            uint256,
+            uint256,
+            uint256,
+            address,
+            address,
+            bytes32
+        )
+    {
+        return (
+            1000,
+            1000,
+            1,
+            1000,
+            1,
+            2,
+            1,
+            0,
+            0,
+            0,
+            1,
+            address(0),
+            address(0),
+            bytes32(0)
+        );
+    }
 }
 
 contract BeanstalkMitigationV4Test is Test {
@@ -57,7 +96,7 @@ contract BeanstalkMitigationV4Test is Test {
         trap = new TrapHarnessV4(address(protocol));
         vault = new BeanstalkVaultV4(address(protocol), address(this), 33);
         protocol.setPauseGuardian(address(vault));
-        protocol.createEmergencyProposal(1000);
+        protocol.createEmergencyProposal(address(protocol), "", 1000);
     }
 
     function _vote(address who, uint256 amount) internal {
@@ -98,7 +137,10 @@ contract BeanstalkMitigationV4Test is Test {
 
         vault.executeResponse(response);
         assertTrue(protocol.paused(), "Protocol should be paused by response");
-        assertTrue(protocol.canceled(), "Proposal should be canceled by response");
+        assertTrue(
+            protocol.canceled(),
+            "Proposal should be canceled by response"
+        );
 
         vm.roll(block.number + 1);
         vm.expectRevert(bytes("BeanstalkGovernanceMockV4: protocol is paused"));
@@ -183,7 +225,7 @@ contract BeanstalkMitigationV4Test is Test {
         vm.roll(block.number + 1);
         _vote(voterB, 700);
         protocol.queueProposal();
-        protocol.cancelProposal();
+        protocol.cancelProposal(1);
         bytes memory curr = trap.collect();
 
         bytes[] memory window = new bytes[](2);
@@ -237,7 +279,7 @@ contract BeanstalkMitigationV4Test is Test {
         protocol.executeProposal();
 
         vm.roll(block.number + 1);
-        protocol.createEmergencyProposal(900);
+        protocol.createEmergencyProposal(address(protocol), "", 900);
 
         // Same voter should count once for the new proposal despite old state.
         _vote(voterA, 900);
@@ -286,6 +328,10 @@ contract BeanstalkMitigationV4Test is Test {
         BeanstalkTypesV4.Incident memory incident = BeanstalkTypesV4.Incident({
             invariantId: BeanstalkTypesV4.INVARIANT_ID,
             target: address(noCancel),
+            proposalId: 1,
+            proposer: address(this),
+            proposalTarget: address(noCancel),
+            proposalCalldataHash: bytes32(0),
             currentForVotes: 1000,
             previousForVotes: 0,
             thresholdVotes: 1000,
