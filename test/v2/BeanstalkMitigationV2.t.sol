@@ -2,8 +2,8 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../../src/BeanstalkAttacker.sol";
-import "../../src/BeanstalkMock.sol";
+import "../../src/v3/BeanstalkAttacker.sol";
+import "../../src/v3/BeanstalkMock.sol";
 import "../../src/v2/BeanstalkTrapV2.sol";
 import "../../src/v2/BeanstalkTypes.sol";
 import "../../src/v2/BeanstalkVaultV2.sol";

@@ -1,7 +1,42 @@
 # Beanstalk Governance Flash-Loan Trap (Drosera)
 
-This repository is a production-inspired Drosera governance-risk demo based on the April 2022 Beanstalk exploit.
-It demonstrates how a Trap can detect suspicious governance-power concentration and trigger a pause response when the protocol provides at least one block of reaction window.
+A Drosera governance-risk demo based on the April 2022 Beanstalk exploit.
+Demonstrates how a Trap detects a governance proposal crossing its execution threshold inside a protocol delay window and triggers an emergency pause and proposal cancellation.
+
+---
+
+## Canonical Version: V4
+
+**V4 is the canonical implementation.**
+
+Older top-holder concentration logic (V2–V3) is archived in `src/v2/` and `src/v3/` as historical context only.
+
+---
+
+## V4 Detection Invariant
+
+The Trap fires when **all** of the following hold across two consecutive block samples for the **same `proposalId`**:
+
+| Condition | Check |
+|---|---|
+| Threshold crossed | `current.proposalForVotes >= current.proposalThresholdVotes` |
+| Was below threshold | `previous.proposalForVotes < previous.proposalThresholdVotes` |
+| Same proposal tracked | `current.proposalId == previous.proposalId` |
+| Proposal queued | `current.queued == true` |
+| Delay window active | `current.readyBlock > current.blockNumber` |
+| Not paused | `current.paused == false` |
+| Not executed | `current.executed == false` |
+| Not canceled | `current.canceled == false` |
+
+Requires `block_sample_size = 2`.
+
+### Reason Precedence
+
+When the invariant fires, reason selection is deterministic:
+
+1. `REASON_SINGLE_WHALE_SUPPORT` — if `topSupporterVotes >= proposalThresholdVotes`
+2. `REASON_COORDINATED_MULTI_SUPPORTER` — if `supportVoterCount > 1`
+3. `REASON_THRESHOLD_CROSS_DELAY_WINDOW` — otherwise
 
 ---
 
@@ -16,13 +51,13 @@ It demonstrates how a Trap can detect suspicious governance-power concentration 
 ## Architecture
 
 ```
-BeanstalkTrap.collect()          reads governance state each block
+BeanstalkTrapV4.collect()          reads governance state each block
          |
          v
-BeanstalkTrap.shouldRespond()    compares current vs previous block snapshots
+BeanstalkTrapV4.shouldRespond()    compares current vs previous block snapshots
          |
          v
-BeanstalkVault.executeResponse() authorized caller triggers protocol pause
+BeanstalkVaultV4.executeResponse() pauses protocol + cancels proposal
 ```
 
 Design properties:
@@ -31,32 +66,19 @@ Design properties:
 - `collect()` is a `view` function reading protocol state on-chain.
 - `shouldRespond()` requires a two-block window (`block_sample_size = 2`).
 - Response path is permissioned via `onlyDrosera` in the vault.
-- Protocol execution includes a one-block delay window before `emergencyCommit()`.
+- Protocol execution includes a one-block delay window before `executeProposal()`.
 
 ---
 
-## Detection Invariant
+## V4 Contracts
 
-The Trap fires when all are true from previous block to current block:
-
-1. Current top-holder stake reaches at least 67% of total stake.
-2. Top-holder stake increased versus previous block.
-3. Top-holder still sits inside the protocol delay window (`readyBlock > block.number`).
-
-If the top holder changed between snapshots, that transition is treated as suspicious (holder-flip takeover path) rather than ignored.
-This keeps detection precise and avoids steady-state false positives for large holders.
-
----
-
-## Contracts
-
-| Contract                    | Purpose                                                  |
-| --------------------------- | -------------------------------------------------------- |
-| `src/interfaces/ITrap.sol`  | Drosera Trap interface                                   |
-| `src/BeanstalkMock.sol`     | Simplified governance protocol with pause-guardian model |
-| `src/BeanstalkTrap.sol`     | Delay-window governance concentration detector           |
-| `src/BeanstalkVault.sol`    | Permissioned response contract                           |
-| `src/BeanstalkAttacker.sol` | Attack simulator used in tests                           |
+| Contract | Purpose |
+|---|---|
+| `src/interfaces/ITrap.sol` | Drosera Trap interface |
+| `src/BeanstalkGovernanceMockV4.sol` | Governance protocol mock with proposal + pause model |
+| `src/BeanstalkTrapV4.sol` | Proposal-threshold delay-window detector |
+| `src/BeanstalkTypesV4.sol` | Shared types, constants, and structs |
+| `src/BeanstalkVaultV4.sol` | Permissioned response: pause + cancel proposal |
 
 ---
 
@@ -66,22 +88,11 @@ This keeps detection precise and avoids steady-state false positives for large h
 forge test -vv
 ```
 
-**88 tests, 0 failures** (5 fuzz targets × 256 runs each).
-
-| Section                                  | Count | Coverage                                                                           |
-| ---------------------------------------- | ----- | ---------------------------------------------------------------------------------- |
-| A – Integration smoke tests              | 5     | Baseline attack, Drosera mitigation, top-holder flip, false-positive, auth         |
-| B – `collect()` unit tests               | 11    | Output size, field values, paused flag, ready-block, zero-stalk guard              |
-| C – `shouldRespond()` boundary tests     | 16    | Empty inputs, below-supermajority, exact boundary, paused snapshot, delay window   |
-| D – False-positive / safe-path tests     | 5     | Static large holder, small increase, sub-majority, zero change, drained state      |
-| E – Top-holder transition tests          | 4     | FLIP label, same-holder no-flip, benign overtake, zero-address prev                |
-| F – `BeanstalkVault` unit tests          | 13    | Auth, cooldown, first-call, event, response count, immutables, zero-address guards |
-| G – `BeanstalkTrap` configuration tests  | 8     | Owner, configure once, non-owner revert, zero-address revert, constants            |
-| H – `BeanstalkMock` access-control tests | 15    | Guardian gate, supermajority gate, delay enforcement, pause state, atomic revert   |
-| I – Multi-block integration tests        | 6     | Vault pauses before delay expires, cooldown config, end-to-end flow, two attackers |
-| J – Fuzz tests                           | 5     | Junk data safety, below-supermajority invariant, determinism, cooldown, count      |
-
-Full test file: `test/BeanstalkMitigation.t.sol`
+| File | Coverage |
+|---|---|
+| `test/BeanstalkMitigationV4.t.sol` | V4 integration, boundary, fuzz (canonical) |
+| `test/v3/BeanstalkMitigationV3.t.sol` | V3 archive tests |
+| `test/v2/BeanstalkMitigationV2.t.sol` | V2 archive tests |
 
 ---
 
@@ -107,48 +118,11 @@ The deploy script writes `drosera.toml` with:
 
 ---
 
-## Why This Version Is Reviewer-Aligned
+## Historical Context: V2–V3 (Top-Holder Concentration)
 
-- Removes the claim that Drosera can interrupt same-transaction atomic execution.
-- Uses correct Drosera data ordering (`data[0]` current, `data[1]` previous).
-- Uses `block_sample_size = 2` to support snapshot comparison.
-- Restricts response execution to an authorized caller.
-- Restricts protocol pause to configured pause guardian.
-- Removes known-attacker coupling by monitoring current top-holder state.
-- Removes trap constructor arguments by using one-time `configure(address)`.
+Older versions archived in `src/v2/` and `src/v3/` detected governance risk by tracking the top STALK holder's concentration:
 
----
+- **V2** (`src/v2/`): First implementation. Detects when a single address crosses 67% of total STALK and queues an emergency commit. Uses `uint8` for status/reason fields.
+- **V3** (`src/v3/`): Upgraded to `uint256` fields, assembly decoding, and `shouldAlert()` for operational health signaling. 88 tests, 0 failures.
 
-## V4 Proposal-Level Invariant
-
-V4 upgrades detection from top-holder concentration to proposal-level risk.
-
-The V4 Trap fires when all are true:
-
-1. `current.proposalForVotes >= current.proposalThresholdVotes`
-2. `previous.proposalForVotes < previous.proposalThresholdVotes`
-3. `current.queued == true`
-4. `current.readyBlock > current.blockNumber`
-5. `current.paused == false`
-6. `current.executed == false`
-7. `current.canceled == false`
-
-### V4 Reason Precedence
-
-When the base invariant is true, reason selection is deterministic:
-
-1. `REASON_SINGLE_WHALE_SUPPORT` if `topSupporterVotes >= proposalThresholdVotes`
-2. `REASON_COORDINATED_MULTI_SUPPORTER` if `supportVoterCount > 1`
-3. Otherwise `REASON_THRESHOLD_CROSS_DELAY_WINDOW`
-
-This precedence ensures one canonical reason per incident even when multiple
-heuristics are true in the same block.
-
-### V4 Operational Alerts
-
-`BeanstalkTrapV4.shouldAlert()` is available for operational health signaling
-and does not trigger pause directly. It emits typed alert payloads for:
-
-- invalid sample windows
-- target missing
-- read failures
+These approaches are historical context only. V4's proposal-level invariant is more precise because it tracks the actual proposal lifecycle and `proposalId` across samples rather than raw stake balance — eliminating false positives from large legitimate holders who never queue a proposal.
